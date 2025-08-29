@@ -1,0 +1,2527 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>WIPFG · Enhanced Inventory System v3.0</title>
+  <meta name="color-scheme" content="dark light" />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    :root {
+      /* Color Scheme */
+      --bg: #0b1020;
+      --panel: #0f172a;
+      --card: #1e293b;
+      --text: #e5e7eb;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      /* Theme Colors */
+      --primary: #7c3aed;
+      --primary-light: #8b5cf6;
+      --secondary: #0ea5e9;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      
+      /* UI Elements */
+      --border: #334155;
+      --border-light: #475569;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      --shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.35);
+      --blur: blur(12px);
+      
+      /* Gradients */
+      --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      --gradient-success: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+      --gradient-error: linear-gradient(135deg, var(--error) 0%, #dc2626 100%);
+      --gradient-bg: radial-gradient(1000px 700px at 85% -10%, rgba(124, 58, 237, 0.08) 0%, transparent 60%),
+                     radial-gradient(900px 600px at -10% 120%, rgba(14, 165, 233, 0.06) 0%, transparent 60%);
+    }
+
+    html[data-theme="light"] {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --card: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      --border: #e2e8f0;
+      --border-light: #cbd5e1;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      --shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.15);
+      --gradient-bg: radial-gradient(1000px 700px at 85% -10%, rgba(124, 58, 237, 0.03) 0%, transparent 60%),
+                     radial-gradient(900px 600px at -10% 120%, rgba(14, 165, 233, 0.02) 0%, transparent 60%);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Inter", "Prompt", system-ui, -apple-system, sans-serif;
+      background: var(--gradient-bg), var(--bg);
+      color: var(--text);
+      font-weight: 400;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Enhanced Topbar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="light"] .topbar {
+      background: rgba(248, 250, 252, 0.9);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+      font-size: 16px;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      min-height: 44px;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      text-decoration: none;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--border-light);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      backdrop-filter: var(--blur);
+    }
+
+    .btn.pri {
+      border: 0;
+      background: var(--gradient-primary);
+      color: #fff;
+      box-shadow: 0 10px 25px rgba(124, 58, 237, 0.25);
+    }
+
+    .btn.pri:hover {
+      box-shadow: 0 15px 35px rgba(124, 58, 237, 0.35);
+    }
+
+    /* Switch Component */
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 25px;
+      background: var(--panel);
+      backdrop-filter: var(--blur);
+    }
+
+    .switch .cap {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .slider {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: var(--text-dim);
+      border-radius: 20px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .slider::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .switch input:checked + .slider {
+      background: var(--success);
+    }
+
+    .switch input:checked + .slider::after {
+      left: 25px;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1200px;
+      margin: 20px auto 100px;
+      padding: 0 20px;
+    }
+
+    /* Enhanced Navigation Tabs */
+    .seg {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 12px 0 24px;
+      padding: 8px;
+      background: var(--panel);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .segbtn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 80px;
+      border-radius: 16px;
+      border: 2px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .segbtn:hover {
+      background: var(--card);
+      transform: translateY(-2px);
+    }
+
+    .segbtn.active {
+      background: var(--gradient-primary);
+      color: #fff;
+      box-shadow: 0 12px 25px rgba(124, 58, 237, 0.25);
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+
+    .seg i {
+      font-style: normal;
+      font-size: 24px;
+    }
+
+    /* Enhanced Cards */
+    .card {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--gradient-primary);
+      opacity: 0.5;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .inner {
+      padding: 24px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    /* Form Elements */
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    input, select, textarea {
+      font: inherit;
+      color: var(--text);
+    }
+
+    .input, .select, .note {
+      width: 100%;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      outline: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 16px;
+    }
+
+    .input:focus, .select:focus, .note:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 20px;
+    }
+
+    /* Quantity Controls */
+    .qty-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 8px;
+    }
+
+    .qty {
+      width: 120px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      padding: 8px;
+      font-size: 20px;
+      font-weight: 700;
+      outline: none;
+      color: var(--text);
+    }
+
+    .step {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    /* Status Grid */
+    .status {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .sbox {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .sbox:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .sbox b {
+      display: block;
+      font-size: 12px;
+      color: var(--secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .sbox span {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Action Box */
+    .action-box {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(220, 38, 38, 0.02) 100%);
+      border: 2px solid var(--error);
+      border-radius: 20px;
+      padding: 20px;
+      margin-top: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .action-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.05), transparent);
+      transition: left 0.8s;
+    }
+
+    .action-box:hover::before {
+      left: 100%;
+    }
+
+    .action-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .action-title {
+      font-weight: 700;
+      color: var(--error);
+      font-size: 16px;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .big {
+      min-height: 70px;
+      border: none;
+      border-radius: 16px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .big::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      transform: translate(-50%, -50%);
+    }
+
+    .big:active::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .big.in {
+      background: var(--gradient-success);
+      color: #fff;
+      box-shadow: 0 12px 25px rgba(34, 197, 94, 0.3);
+    }
+
+    .big.in:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 35px rgba(34, 197, 94, 0.4);
+    }
+
+    .big.out {
+      background: var(--gradient-error);
+      color: #fff;
+      box-shadow: 0 12px 25px rgba(239, 68, 68, 0.3);
+    }
+
+    .big.out:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 35px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Enhanced Tables */
+    .scroll {
+      max-height: 60vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 14px;
+    }
+
+    .table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      color: var(--text-muted);
+      text-align: left;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table td {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .table tr:hover td {
+      background: rgba(124, 58, 237, 0.05);
+    }
+
+    .table tr:last-child td {
+      border-bottom: none;
+    }
+
+    
+
+    /* === Column sizing & numeric alignment (added) === */
+    .table th, .table td { vertical-align: middle; }
+    /* Shrink most columns to content; let Note expand */
+    .table .th-datetime, .table .th-type, .table .th-amount, .table .th-balance,
+    .table .th-partno, .table .th-partname,
+    .table td:not(.note-col) {
+      white-space: nowrap;
+    }
+    .table .th-note, .table td.note-col {
+      white-space: normal;
+      width: auto;
+    }
+    /* Use minimal width for these columns so they fit their text */
+    .table .th-datetime, .table .th-type, .table .th-amount, .table .th-balance,
+    .table .th-partno, .table .th-partname { width: 1%; }
+    /* Align numbers perfectly using tabular numerals */
+    .table th.right, .table td.right,
+    .table td[style*="text-align: right"] {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+    }
+
+.right {
+      text-align: right;
+    }
+
+    /* Mobile List View */
+    .list {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .item {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .item-sub {
+      display: flex;
+      gap: 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    /* Tab System */
+    .tab {
+      display: none;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+    }
+
+    .tab.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Force Mobile Mode */
+    .force-mobile .container {
+      max-width: 600px;
+    }
+
+    .force-mobile .scroll {
+      display: none;
+    }
+
+    .force-mobile .list {
+      display: flex;
+    }
+
+    .force-mobile .qty-container {
+      width: 100%;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .scroll {
+        display: none;
+      }
+      
+      .list {
+        display: flex;
+      }
+      
+      .container {
+        padding: 0 16px;
+      }
+      
+      .inner {
+        padding: 20px;
+      }
+      
+      .seg {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      
+      .segbtn {
+        height: 70px;
+      }
+      
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .status {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Enhanced Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: var(--blur);
+      display: none;
+      z-index: 70;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .keypad-overlay {
+      align-items: flex-end;
+    }
+
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .keypad-content {
+      border-radius: 20px 20px 0 0;
+      animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .keypad-btn {
+      height: 60px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .keypad-btn:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .keypad-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Scanner Modal */
+    .scanner-content {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 3/4;
+      background: #000;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 2px solid var(--primary);
+      box-shadow: 0 0 40px rgba(124, 58, 237, 0.4);
+    }
+
+    .scanner-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .scanner-overlay {
+      position: absolute;
+      inset: 20%;
+      border: 2px solid var(--success);
+      border-radius: 12px;
+      animation: scanPulse 2s infinite;
+    }
+
+    @keyframes scanPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.02); }
+    }
+
+    .scanner-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: white;
+      padding: 8px 12px;
+      backdrop-filter: var(--blur);
+    }
+
+    /* Loading Animation */
+    .loading {
+      position: relative;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid transparent;
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Success/Error Animations */
+    .success-anim {
+      animation: successPulse 0.6s ease;
+    }
+
+    .error-anim {
+      animation: errorShake 0.4s ease;
+    }
+
+    @keyframes successPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); filter: brightness(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes errorShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .toast {
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow);
+      font-weight: 500;
+      max-width: 350px;
+      animation: slideInRight 0.3s ease;
+      color: var(--text);
+    }
+
+    .toast.success {
+      background: rgba(34, 197, 94, 0.1);
+      border-color: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .toast.error {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1020"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+</head>
+<body>
+  <!-- Enhanced Topbar -->
+  <div class="topbar">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">📦</div>
+        <span>WIPFG</span>
+      </div>
+      <div class="spacer"></div>
+      <button id="installBtn" class="btn ghost" style="display:none;">📥 ติดตั้งแอป</button>
+      <label class="switch" title="สลับโหมดมือถือ">
+        <input id="mobileToggle" type="checkbox">
+        <span class="slider"></span>
+        <span class="cap">โหมดมือถือ</span>
+      </label>
+      <button id="themeToggle" class="btn ghost">🌙 โหมดสว่าง</button>
+      <button id="scanBtn" class="btn pri">📱 สแกน</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Enhanced Navigation -->
+    <div class="seg">
+      <div class="segbtn active" data-nav="tab-make">
+        <i>📦</i>
+        <div>ทำรายการ</div>
+      </div>
+      <div class="segbtn" data-nav="tab-history">
+        <i>📜</i>
+        <div>ประวัติ</div>
+      </div>
+      <div class="segbtn" data-nav="tab-settings">
+        <i>⚙️</i>
+        <div>ตั้งค่า</div>
+      </div>
+    </div>
+
+    <!-- Make Transaction Tab -->
+    <section id="tab-make" class="tab active">
+      <div class="card">
+        <div class="inner">
+          <div class="section-title">
+            <h3>🔍 ข้อมูล Part Number</h3>
+            <div class="badge">สแกนหรือพิมพ์</div>
+          </div>
+          
+          <div class="row">
+            <div style="flex: 1; min-width: 280px;">
+              <label>🏷️ Part Number</label>
+              <input id="partNoInput" class="input" list="partList" placeholder="พิมพ์หรือสแกน Part Number">
+              <datalist id="partList"></datalist>
+            </div>
+          </div>
+
+          <div class="row">
+            <div style="flex: 1;">
+              <label>📊 จำนวน</label>
+              <div class="qty-container">
+                <button class="step" id="minus1">−</button>
+                <input id="qtyInput" class="qty" type="number" inputmode="numeric" placeholder="0" min="0" step="1">
+                <button class="step" id="plus1">+</button>
+                <button class="step" id="plus10">+10</button>
+              </div>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn" id="keypadOpen">🔢 แป้นตัวเลข</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div style="flex: 1;">
+              <label>📝 หมายเหตุ</label>
+              <input id="noteInput" class="note" placeholder="อธิบายสั้นๆ ถ้ามี">
+            </div>
+          </div>
+
+          <div class="status">
+            <div class="sbox">
+              <b>📊 สถานะ</b>
+              <span id="statusText">กำลังเชื่อมต่อ...</span>
+            </div>
+            <div class="sbox">
+              <b>📦 คงเหลือ</b>
+              <span id="stockRemain">-</span>
+            </div>
+            <div class="sbox">
+              <b>🏷️ ชื่อ Part</b>
+              <span id="partName">-</span>
+            </div>
+            <div class="sbox">
+              <b>🏢 Customer • Location</b>
+              <span id="custLoc">-</span>
+            </div>
+          </div>
+
+          <div class="action-box">
+            <div class="action-head">
+              <div class="action-title">⚡ ทำรายการด่วน</div>
+              <div class="badge">เลือกจำนวนแล้วกด</div>
+            </div>
+            <div class="action-grid">
+              <button id="btnIn" class="big in">
+                ✅ รับเข้า Stock
+              </button>
+              <button id="btnOut" class="big out">
+                📤 เบิกออก
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="inner">
+          <div class="section-title">
+            <h3>📋 ประวัติล่าสุดของ Part</h3>
+            <div class="badge">รายการล่าสุด</div>
+          </div>
+          
+          <div class="scroll">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th class="th-datetime">วันที่-เวลา</th>
+                  <th class="th-type">ประเภท</th>
+                  <th class="th-amount right">จำนวน</th>
+                  <th class="th-balance right">คงเหลือ</th>
+                  <th class="th-note note-col">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody id="partLogBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    เลือก Part เพื่อดูประวัติ
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="list" id="partLogList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- History Tab -->
+    <section id="tab-history" class="tab">
+      <div class="card">
+        <div class="inner">
+          <div class="section-title">
+            <h3>🔍 ค้นหาประวัติ</h3>
+          </div>
+          
+          <div class="row">
+            <div style="flex: 1; min-width: 200px;">
+              <label>🏷️ Part Number</label>
+              <input id="filterPart" class="input" list="partList2" placeholder="ว่าง = ทั้งหมด">
+              <datalist id="partList2"></datalist>
+            </div>
+            <div style="min-width: 140px;">
+              <label>📊 ประเภท</label>
+              <select id="filterType" class="select">
+                <option value="">ทั้งหมด</option>
+                <option value="in">รับเข้า</option>
+                <option value="out">เบิกออก</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>📅 ตั้งแต่วันที่</label>
+              <input type="date" id="startDate" class="input">
+            </div>
+            <div>
+              <label>📅 ถึงวันที่</label>
+              <input type="date" id="endDate" class="input">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn" id="quick7">7 วัน</button>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="btn" id="quick30">30 วัน</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="btnSearch" class="btn pri">🔍 ค้นหา</button>
+            <button id="btnMore" class="btn">🔄 โหลดเพิ่ม</button>
+            <button id="btnExport" class="btn">💾 Export CSV</button>
+          </div>
+
+          <div id="idxWarn" class="badge" style="display: none; margin: 8px 0; background: rgba(245, 158, 11, 0.2); color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">
+            ⚠️ ไม่มี Index — ใช้โหมดดึงข้อมูลแบบเฉพาะ Part
+          </div>
+
+          <div class="scroll">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th class="th-datetime">วันที่-เวลา</th>
+                  <th class="th-partno">Part Number</th>
+                  <th class="th-partname">ชื่อ Part</th>
+                  <th class="th-type">ประเภท</th>
+                  <th class="th-amount right">จำนวน</th>
+                  <th class="th-balance right">คงเหลือ</th>
+                  <th class="th-note note-col">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    พร้อมค้นหา...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="list" id="historyList"></div>
+          <div id="histStatus" class="badge" style="margin-top: 16px;">พร้อมค้นหา...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <div class="inner">
+          <div class="section-title">
+            <h3>⚙️ การตั้งค่า</h3>
+          </div>
+          
+          <div class="row">
+            <button class="btn" id="toggleTheme2">🎨 สลับโหมดมืด/สว่าง</button>
+            <button class="btn" id="reloadParts">🔄 รีเฟรชรายชื่อ Part</button>
+          </div>
+
+          <div class="row">
+            <button class="btn" id="createSampleData">📦 สร้างข้อมูลตัวอย่าง</button>
+            <button class="btn" id="clearAllData">🗑️ ล้างข้อมูลทั้งหมด</button>
+          </div>
+
+          <div class="row">
+            <button class="btn" id="exportBackup">💾 Export ข้อมูล</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <button class="btn" id="importBackup">📁 Import ข้อมูล</button>
+          </div>
+          
+          <div class="status">
+            <div class="sbox">
+              <b>🔐 การเชื่อมต่อ</b>
+              <span id="connectionStatus">Firebase Firestore</span>
+            </div>
+            <div class="sbox">
+              <b>📱 รุ่นแอป</b>
+              <span>WIPFG v3.0</span>
+            </div>
+            <div class="sbox">
+              <b>📊 จำนวน Parts</b>
+              <span id="totalParts">-</span>
+            </div>
+            <div class="sbox">
+              <b>📋 รายการทั้งหมด</b>
+              <span id="totalLogs">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Enhanced Keypad Modal -->
+  <div id="keypad" class="modal-overlay keypad-overlay">
+    <div class="modal-content keypad-content">
+      <div class="modal-header">
+        <div class="modal-title">🔢 ใส่จำนวน</div>
+        <button id="padClose" class="btn">ปิด</button>
+      </div>
+      <div class="keypad-grid">
+        <button class="keypad-btn">1</button>
+        <button class="keypad-btn">2</button>
+        <button class="keypad-btn">3</button>
+        <button class="keypad-btn">4</button>
+        <button class="keypad-btn">5</button>
+        <button class="keypad-btn">6</button>
+        <button class="keypad-btn">7</button>
+        <button class="keypad-btn">8</button>
+        <button class="keypad-btn">9</button>
+        <button class="keypad-btn">C</button>
+        <button class="keypad-btn">0</button>
+        <button class="keypad-btn">←</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Scanner Modal -->
+  <div id="scanModal" class="modal-overlay">
+    <div class="scanner-content">
+      <video id="video" class="scanner-video"></video>
+      <div class="scanner-overlay"></div>
+      <button id="closeScan" class="scanner-close">✖ ปิด</button>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toasts" class="toast-container"></div>
+
+  <script>
+    // ===== Core Utilities =====
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => [...document.querySelectorAll(s)];
+    const toasts = $("#toasts");
+
+    // Enhanced Toast System
+    
+    // Gate haptics until after first user gesture (avoid browser block)
+    let __USER_GESTURE__ = false;
+    ['pointerdown','touchstart','keydown','click'].forEach(evt => {
+      window.addEventListener(evt, () => { __USER_GESTURE__ = true; }, { once: true, passive: true });
+    });
+function toast(message, isSuccess = true) {
+      const toast = document.createElement("div");
+      toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
+      toast.textContent = message;
+      toasts.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+      
+      if (navigator.vibrate && __USER_GESTURE__) {
+        try { navigator.vibrate(isSuccess ? [50] : [100, 50, 100]); } catch(e){}
+      }
+    }
+
+    // Date Formatting
+    const formatDate = (date) => {
+      const pad = n => String(n).padStart(2, '0');
+      return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    };
+
+    // Enhanced Theme Management
+    const themeToggle = $("#themeToggle");
+    const root = document.documentElement;
+    const savedTheme = localStorage.getItem("wipfg-theme") || "dark";
+    root.setAttribute("data-theme", savedTheme);
+
+    function syncTheme() {
+      const isDark = root.getAttribute("data-theme") === "dark";
+      themeToggle.textContent = isDark ? "☀️ โหมดสว่าง" : "🌙 โหมดมืด";
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const currentTheme = root.getAttribute("data-theme");
+      const newTheme = currentTheme === "dark" ? "light" : "dark";
+      
+      root.setAttribute("data-theme", newTheme);
+      localStorage.setItem("wipfg-theme", newTheme);
+      syncTheme();
+      
+      document.body.style.transition = 'all 0.3s ease';
+      setTimeout(() => {
+        document.body.style.transition = '';
+      }, 300);
+    });
+
+    $("#toggleTheme2").addEventListener("click", () => themeToggle.click());
+    syncTheme();
+
+    // Mobile Toggle
+    const mobileToggle = $("#mobileToggle");
+    const savedMobile = localStorage.getItem("wipfg-force-mobile") === "1";
+    if (savedMobile) {
+      document.body.classList.add("force-mobile");
+      mobileToggle.checked = true;
+    }
+
+    mobileToggle.addEventListener("change", () => {
+      if (mobileToggle.checked) {
+        document.body.classList.add("force-mobile");
+        localStorage.setItem("wipfg-force-mobile", "1");
+      } else {
+        document.body.classList.remove("force-mobile");
+        localStorage.setItem("wipfg-force-mobile", "0");
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // Enhanced Tab Navigation
+    function activate(id) {
+      $$(".tab").forEach(tab => {
+        tab.classList.remove("active");
+      });
+      $("#" + id).classList.add("active");
+      
+      $$(".segbtn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.nav === id);
+      });
+      
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    $$(".segbtn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.add("loading");
+        setTimeout(() => {
+          btn.classList.remove("loading");
+          activate(btn.dataset.nav);
+        }, 150);
+      });
+    });
+
+    
+    // ===== PWA Install & Service Worker =====
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+      });
+    }
+
+    let deferredPrompt = null;
+    const installBtn = document.querySelector('#installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.style.display = 'inline-flex';
+    });
+
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        installBtn.disabled = true;
+        try {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+              toast('ติดตั้งแอปสำเร็จ');
+            } else {
+              toast('ยกเลิกการติดตั้ง', false);
+            }
+            deferredPrompt = null;
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          installBtn.disabled = false;
+        }
+      });
+    }
+
+    window.addEventListener('appinstalled', () => {
+      if (installBtn) installBtn.style.display = 'none';
+      toast('ติดตั้งเป็นแอปแล้ว');
+    });
+
+// Enhanced Scanner
+    const scanBtn = $("#scanBtn");
+    const scanModal = $("#scanModal");
+    const video = $("#video");
+    const closeScan = $("#closeScan");
+    let codeReader = null;
+
+    async function startScanner() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          toast("อุปกรณ์ไม่รองรับกล้อง", false);
+          return;
+        }
+
+        scanBtn.classList.add("loading");
+        
+        if (!codeReader) {
+          codeReader = new ZXing.BrowserMultiFormatReader();
+        }
+        
+        scanModal.style.display = "flex";
+        let deviceId = undefined;
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const cams = devices.filter(d => d.kind === 'videoinput');
+          const back = cams.find(d => /back|rear|environment/i.test(d.label || ''));
+          deviceId = (back || cams[0])?.deviceId;
+        }
+
+        await codeReader.decodeFromVideoDevice(deviceId, video, (result, error) => {
+          if (result) {
+            const scannedText = result.getText();
+            $("#partNoInput").value = scannedText;
+            $("#partNoInput").classList.add("success-anim");
+            
+            setTimeout(() => $("#partNoInput").classList.remove("success-anim"), 600);
+            selectPart(scannedText);
+            stopScanner();
+            toast("สแกนสำเร็จ: " + scannedText);
+          }
+        });
+        
+        scanBtn.classList.remove("loading");
+      } catch (error) {
+        console.error(error);
+        scanBtn.classList.remove("loading");
+        toast("เปิดกล้องไม่สำเร็จ", false);
+        stopScanner();
+      }
+    }
+
+    function stopScanner() {
+      try {
+        if (codeReader) {
+          codeReader.reset();
+        }
+      } catch (e) {
+        console.error("Error stopping scanner:", e);
+      }
+      scanModal.style.display = "none";
+    }
+
+    scanBtn.addEventListener("click", startScanner);
+    closeScan.addEventListener("click", stopScanner);
+
+    // Enhanced Keypad
+    const keypad = $("#keypad");
+    const keypadOpen = $("#keypadOpen");
+    const padClose = $("#padClose");
+    const qtyInput = $("#qtyInput");
+
+    keypadOpen.addEventListener("click", () => {
+      keypad.style.display = "flex";
+    });
+
+    padClose.addEventListener("click", () => {
+      keypad.style.display = "none";
+    });
+
+    $$(".keypad-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const value = btn.textContent.trim();
+        const currentValue = qtyInput.value || "";
+        
+        if (value === "C") {
+          qtyInput.value = "";
+        } else if (value === "←") {
+          qtyInput.value = currentValue.slice(0, -1);
+        } else {
+          qtyInput.value = currentValue + value;
+        }
+        
+        btn.classList.add("success-anim");
+        setTimeout(() => btn.classList.remove("success-anim"), 300);
+      });
+    });
+
+    // Close modals on outside click
+    [keypad, scanModal].forEach(modal => {
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) {
+          modal.style.display = "none";
+          if (modal === scanModal) stopScanner();
+        }
+      });
+    });
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdHCxweV-gNsJadwvPat7itPHtqPjI09c",
+      authDomain: "fg-realtime.firebaseapp.com",
+      projectId: "fg-realtime",
+      storageBucket: "fg-realtime.firebasestorage.app",
+      messagingSenderId: "868246817558",
+      appId: "1:868246817558:web:92ac8cf055e57fc7f0de37"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Main Application Variables
+    const partNoInput = $("#partNoInput");
+    const partList = $("#partList");
+    const noteInput = $("#noteInput");
+    const statusText = $("#statusText");
+    const stockRemain = $("#stockRemain");
+    const partName = $("#partName");
+    const custLoc = $("#custLoc");
+    const minus1 = $("#minus1");
+    const plus1 = $("#plus1");
+    const plus10 = $("#plus10");
+    const btnIn = $("#btnIn");
+    const btnOut = $("#btnOut");
+    const partLogBody = $("#partLogBody");
+    const partLogList = $("#partLogList");
+
+    let currentRef = null;
+    let unsubDoc = null;
+    let unsubLogs = null;
+
+    // Enhanced Quantity Controls
+    minus1.addEventListener('click', () => {
+      const current = parseInt(qtyInput.value || '0') || 0;
+      qtyInput.value = Math.max(0, current - 1);
+      minus1.classList.add("success-anim");
+      setTimeout(() => minus1.classList.remove("success-anim"), 300);
+    });
+
+    plus1.addEventListener('click', () => {
+      const current = parseInt(qtyInput.value || '0') || 0;
+      qtyInput.value = current + 1;
+      plus1.classList.add("success-anim");
+      setTimeout(() => plus1.classList.remove("success-anim"), 300);
+    });
+
+    plus10.addEventListener('click', () => {
+      const current = parseInt(qtyInput.value || '0') || 0;
+      qtyInput.value = current + 10;
+      plus10.classList.add("success-anim");
+      setTimeout(() => plus10.classList.remove("success-anim"), 300);
+    });
+
+    // Enhanced Part Selection
+    function clearPart() {
+      currentRef = null;
+      if (unsubDoc) { unsubDoc(); unsubDoc = null; }
+      if (unsubLogs) { unsubLogs(); unsubLogs = null; }
+      
+      statusText.textContent = "ยังไม่ได้เลือก Part";
+      stockRemain.textContent = "-";
+      partName.textContent = "-";
+      custLoc.textContent = "-";
+      
+      partLogBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
+            เลือก Part เพื่อดูประวัติ
+          </td>
+        </tr>
+      `;
+      partLogList.innerHTML = "";
+    }
+
+    async function loadPartList() {
+      try {
+        $("#reloadParts").classList.add("loading");
+        const snapshot = await db.collection("/rooms/wipfg/parts")
+          .orderBy("partNo")
+          .limit(800)
+          .get();
+        
+        const options = [...new Set(snapshot.docs.map(doc => doc.data()?.partNo).filter(Boolean))]
+          .map(partNo => `<option value="${String(partNo).replace(/"/g, '&quot;')}"></option>`)
+          .join("");
+        
+        partList.innerHTML = options;
+        $("#partList2").innerHTML = options;
+        toast("โหลดรายชื่อ Part สำเร็จ");
+      } catch (error) {
+        console.error(error);
+        toast("โหลด Part ไม่สำเร็จ", false);
+      } finally {
+        $("#reloadParts").classList.remove("loading");
+      }
+    }
+
+    $("#reloadParts").addEventListener("click", loadPartList);
+
+    function addPartLogRow(rowData) {
+      // Table row
+      const row = document.createElement("tr");
+      const typeClass = rowData.type === 'in' ? 'success' : 'error';
+      const typeText = rowData.type === 'in' ? '✅ รับเข้า' : '📤 เบิกออก';
+      const amountText = `${rowData.type === 'in' ? '+' : '-'}${Number(rowData.amount || 0).toLocaleString()}`;
+      
+      row.innerHTML = `
+        <td style="font-size: 12px;">${formatDate(rowData.ts)}</td>
+        <td>
+          <span style="padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; background: var(--${typeClass}); color: white;">
+            ${typeText}
+          </span>
+        </td>
+        <td style="text-align: right; font-weight: 600; color: var(--${typeClass});">
+          ${amountText}
+        </td>
+        <td style="text-align: right; font-weight: 700;">
+          ${Number(rowData.balance || 0).toLocaleString()}
+        </td>
+        <td class="note-col" style="color: var(--text-muted);">${rowData.note || ''}</td>
+      `;
+      
+      partLogBody.appendChild(row);
+
+      // List item for mobile
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div class="item-top">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>${rowData.type === 'in' ? '✅' : '📤'}</span>
+            <span>${rowData.type === 'in' ? 'รับเข้า' : 'เบิกออก'}</span>
+          </div>
+          <div style="font-size: 12px;">${formatDate(rowData.ts)}</div>
+        </div>
+        <div class="item-sub">
+          <div style="color: var(--${typeClass}); font-weight: 600;">
+            จำนวน <b>${amountText}</b>
+          </div>
+          <div style="font-weight: 700;">คงเหลือ <b>${Number(rowData.balance || 0).toLocaleString()}</b></div>
+          ${rowData.note ? `<div>📝 ${rowData.note}</div>` : ''}
+        </div>
+      `;
+      
+      partLogList.appendChild(item);
+    }
+
+    async function selectPart(partNo) {
+      clearPart();
+      partNoInput.classList.add("loading");
+      
+      try {
+        const querySnapshot = await db.collection("/rooms/wipfg/parts")
+          .where("partNo", "==", partNo)
+          .limit(1)
+          .get();
+        
+        if (querySnapshot.empty) {
+          toast("ไม่พบ Part: " + partNo, false);
+          partNoInput.classList.add("error-anim");
+          setTimeout(() => partNoInput.classList.remove("error-anim"), 400);
+          return;
+        }
+
+        const doc = querySnapshot.docs[0];
+        currentRef = doc.ref;
+        statusText.textContent = "เลือกแล้ว: " + partNo;
+
+        // Listen to document changes
+        unsubDoc = currentRef.onSnapshot((docSnapshot) => {
+          const data = docSnapshot.data() || {};
+          partName.textContent = data.partName || "-";
+          
+          const remaining = Number(data.qty ?? data.quantity ?? 0);
+          stockRemain.textContent = isFinite(remaining) ? remaining.toLocaleString() : "-";
+          
+          const customerLocation = [data.customer, data.location].filter(Boolean).join(" • ") || "-";
+          custLoc.textContent = customerLocation;
+        });
+
+        // Listen to logs
+        unsubLogs = currentRef.collection("logs")
+          .orderBy("ts", "desc")
+          .limit(100)
+          .onSnapshot((snapshot) => {
+            partLogBody.innerHTML = "";
+            partLogList.innerHTML = "";
+            
+            if (snapshot.empty) {
+              partLogBody.innerHTML = `
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    ยังไม่มีประวัติการทำรายการ
+                  </td>
+                </tr>
+              `;
+              return;
+            }
+            
+            snapshot.forEach(doc => {
+              const data = doc.data() || {};
+              addPartLogRow({
+                ts: data.ts?.toDate?.() || new Date(),
+                type: data.type || 'in',
+                amount: data.amount || 0,
+                balance: data.balance || 0,
+                note: data.note || ''
+              });
+            });
+          });
+
+        partNoInput.classList.add("success-anim");
+        setTimeout(() => partNoInput.classList.remove("success-anim"), 600);
+        
+      } catch (error) {
+        console.error(error);
+        toast("เกิดข้อผิดพลาด", false);
+      } finally {
+        partNoInput.classList.remove("loading");
+      }
+    }
+
+    // Part input event listeners
+    partNoInput.addEventListener('change', (e) => {
+      const value = (e.target.value || '').trim();
+      if (value) selectPart(value);
+    });
+
+    partNoInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const value = (e.target.value || '').trim();
+        if (value) selectPart(value);
+      }
+    });
+
+    // Enhanced Stock Adjustment
+    async function adjustStock(type) {
+      if (!currentRef) {
+        toast("กรุณาเลือก Part ก่อน", false);
+        return;
+      }
+
+      const amount = Math.floor(Number(qtyInput.value));
+      if (!isFinite(amount) || amount <= 0) {
+        toast("ใส่จำนวน > 0", false);
+        qtyInput.classList.add("error-anim");
+        setTimeout(() => qtyInput.classList.remove("error-anim"), 400);
+        return;
+      }
+
+      const targetBtn = type === 'in' ? btnIn : btnOut;
+      targetBtn.classList.add("loading");
+
+      try {
+        await firebase.firestore().runTransaction(async (transaction) => {
+          const docSnapshot = await transaction.get(currentRef);
+          if (!docSnapshot.exists) {
+            throw new Error("เอกสารหลักหาย");
+          }
+          
+          const data = docSnapshot.data() || {};
+          const currentStock = Number(data.qty ?? data.quantity ?? 0);
+          let newStock = currentStock;
+          
+          if (type === 'in') {
+            newStock = currentStock + amount;
+          } else {
+            if (currentStock < amount) {
+              throw new Error(`คงเหลือ ${currentStock} ไม่พอ`);
+            }
+            newStock = currentStock - amount;
+          }
+
+          // Update stock
+          transaction.update(currentRef, { qty: newStock });
+          
+          // Add log entry
+          const logRef = currentRef.collection("logs").doc();
+          transaction.set(logRef, {
+            type,
+            amount,
+            balance: newStock,
+            partNo: data.partNo || partNoInput.value || null,
+            partName: data.partName || null,
+            note: (noteInput.value || '').slice(0, 200),
+            ts: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        });
+
+        const actionText = type === 'in' ? '✅ รับเข้า' : '📤 เบิกออก';
+        toast(`${actionText} ${amount} สำเร็จ`);
+        
+        // Clear inputs
+        qtyInput.value = "";
+        noteInput.value = "";
+        
+        targetBtn.classList.add("success-anim");
+        setTimeout(() => targetBtn.classList.remove("success-anim"), 600);
+
+      } catch (error) {
+        console.error(error);
+        toast("ไม่สำเร็จ: " + error.message, false);
+        targetBtn.classList.add("error-anim");
+        setTimeout(() => targetBtn.classList.remove("error-anim"), 400);
+      } finally {
+        targetBtn.classList.remove("loading");
+      }
+    }
+
+    btnIn.addEventListener("click", () => adjustStock('in'));
+    btnOut.addEventListener("click", () => adjustStock('out'));
+
+    // Keyboard shortcuts
+    window.addEventListener("keydown", (e) => {
+      if (e.target.matches('input, textarea, select')) return;
+      
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        adjustStock("in");
+      }
+      if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        adjustStock("out");
+      }
+    });
+
+    // History functionality
+    const filterPart = $("#filterPart");
+    const filterType = $("#filterType");
+    const startDate = $("#startDate");
+    const endDate = $("#endDate");
+    const btnSearch = $("#btnSearch");
+    const btnMore = $("#btnMore");
+    const btnExport = $("#btnExport");
+    const histStatus = $("#histStatus");
+    const idxWarn = $("#idxWarn");
+    const historyBody = $("#historyBody");
+    const historyList = $("#historyList");
+
+    let lastDoc = null;
+    let pending = false;
+    let fallback = false;
+
+    // Cache for fallback mode
+    let fbCache = [];
+    let fbCursor = 0;
+    let fbParams = null;
+
+    function addHistoryRow(data) {
+      const row = document.createElement("tr");
+      const typeClass = data.type === 'in' ? 'success' : 'error';
+      const typeText = data.type === 'in' ? '✅ รับเข้า' : '📤 เบิกออก';
+      const amountText = `${data.type === 'in' ? '+' : '-'}${Number(data.amount || 0).toLocaleString()}`;
+      
+      row.innerHTML = `
+        <td style="font-size: 12px;">${formatDate(data.ts)}</td>
+        <td style="font-weight: 600; color: var(--primary);">${data.partNo || '-'}</td>
+        <td>${data.partName || ''}</td>
+        <td>
+          <span style="padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; background: var(--${typeClass}); color: white;">
+            ${typeText}
+          </span>
+        </td>
+        <td style="text-align: right; font-weight: 600; color: var(--${typeClass});">
+          ${amountText}
+        </td>
+        <td style="text-align: right; font-weight: 700;">
+          ${Number(data.balance || 0).toLocaleString()}
+        </td>
+        <td class="note-col" style="color: var(--text-muted);">${data.note || ''}</td>
+      `;
+      
+      historyBody.appendChild(row);
+
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div class="item-top">
+          <div style="font-weight: 600;">${data.partNo || '-'} — ${data.partName || ''}</div>
+          <div style="font-size: 12px;">${formatDate(data.ts)}</div>
+        </div>
+        <div class="item-sub">
+          <div>${data.type === 'in' ? '✅' : '📤'} ${data.type === 'in' ? 'รับเข้า' : 'เบิกออก'}</div>
+          <div style="color: var(--${typeClass}); font-weight: 600;">
+            จำนวน <b>${amountText}</b>
+          </div>
+          <div style="font-weight: 700;">คงเหลือ <b>${Number(data.balance || 0).toLocaleString()}</b></div>
+          ${data.note ? `<div>📝 ${data.note}</div>` : ''}
+        </div>
+      `;
+      
+      historyList.appendChild(item);
+    }
+
+    function endOfDay(date) {
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+      return endDate;
+    }
+
+    function parseDateInput(input) {
+      if (!input.value) return null;
+      const date = new Date(input.value + 'T00:00:00');
+      return isNaN(date) ? null : date;
+    }
+
+    // Quick date buttons
+    $("#quick7").addEventListener("click", () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+      startDate.value = start.toISOString().slice(0, 10);
+      endDate.value = end.toISOString().slice(0, 10);
+    });
+
+    $("#quick30").addEventListener("click", () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 29);
+      startDate.value = start.toISOString().slice(0, 10);
+      endDate.value = end.toISOString().slice(0, 10);
+    });
+
+    async function searchHistory(reset = true) {
+      if (pending) return;
+      pending = true;
+      histStatus.textContent = "กำลังโหลด...";
+      
+      try {
+        const partNo = (filterPart.value || '').trim();
+        const type = filterType.value || '';
+        const startDateValue = parseDateInput(startDate);
+        const endDateValue = parseDateInput(endDate);
+
+        if (!fallback) {
+          // Normal path (requires Index)
+          let query = db.collectionGroup("logs").orderBy("ts", "desc");
+          
+          if (partNo) query = query.where("partNo", "==", partNo);
+          if (startDateValue) query = query.where("ts", ">=", startDateValue);
+          if (endDateValue) query = query.where("ts", "<=", endOfDay(endDateValue));
+          if (reset) {
+            historyBody.innerHTML = '';
+            historyList.innerHTML = '';
+            lastDoc = null;
+          }
+          if (lastDoc) query = query.startAfter(lastDoc);
+          
+          query = query.limit(100);
+          const snapshot = await query.get();
+          
+          if (snapshot.empty) {
+            histStatus.textContent = reset ? "ไม่พบข้อมูล" : "หมดข้อมูล";
+            pending = false;
+            return;
+          }
+
+          const jobs = [];
+          snapshot.forEach(doc => {
+            const data = doc.data() || {};
+            const row = {
+              ts: data.ts?.toDate?.() || new Date(),
+              type: data.type || 'in',
+              amount: data.amount || 0,
+              balance: data.balance || 0,
+              partNo: data.partNo || null,
+              partName: data.partName || null,
+              note: data.note || null
+            };
+            
+            if (type && row.type !== type) return;
+            
+            if (!row.partNo || !row.partName) {
+              const parent = doc.ref.parent.parent;
+              if (parent) {
+                jobs.push(parent.get().then(parentDoc => {
+                  const parentData = parentDoc.data() || {};
+                  row.partNo = row.partNo || parentData.partNo || null;
+                  row.partName = row.partName || parentData.partName || null;
+                  addHistoryRow(row);
+                }));
+              }
+            } else {
+              addHistoryRow(row);
+            }
+          });
+          
+          await Promise.all(jobs);
+          lastDoc = snapshot.docs[snapshot.docs.length - 1];
+          histStatus.textContent = "โหลดแล้ว";
+          
+        } else {
+          // Fallback mode (no Index) — requires Part number
+          idxWarn.style.display = 'inline-block';
+          if (!partNo) {
+            histStatus.textContent = "โหมดชั่วคราว: กรุณาใส่ Part Number";
+            pending = false;
+            return;
+          }
+
+          const key = JSON.stringify({
+            partNo,
+            type,
+            start: startDateValue?.toISOString() || null,
+            end: endDateValue ? endOfDay(endDateValue).toISOString() : null
+          });
+          
+          if (reset || key !== fbParams) {
+            fbParams = key;
+            fbCache = [];
+            fbCursor = 0;
+            historyBody.innerHTML = '';
+            historyList.innerHTML = '';
+            
+            const parts = await db.collection("/rooms/wipfg/parts")
+              .where("partNo", "==", partNo)
+              .limit(5)
+              .get();
+            
+            if (parts.empty) {
+              histStatus.textContent = "ไม่พบ Part";
+              pending = false;
+              return;
+            }
+
+            const allRows = [];
+            for (const doc of parts.docs) {
+              let query = doc.ref.collection("logs").orderBy("ts", "desc");
+              if (startDateValue) query = query.where("ts", ">=", startDateValue);
+              if (endDateValue) query = query.where("ts", "<=", endOfDay(endDateValue));
+              
+              const snapshot = await query.limit(1000).get();
+              snapshot.forEach(logDoc => {
+                const data = logDoc.data() || {};
+                const row = {
+                  ts: data.ts?.toDate?.() || new Date(),
+                  type: data.type || 'in',
+                  amount: data.amount || 0,
+                  balance: data.balance || 0,
+                  partNo: partNo,
+                  partName: (doc.data()?.partName) || '',
+                  note: data.note || ''
+                };
+                allRows.push(row);
+              });
+            }
+            
+            fbCache = allRows
+              .filter(row => !type || row.type === type)
+              .sort((a, b) => b.ts - a.ts);
+          }
+          
+          const slice = fbCache.slice(fbCursor, fbCursor + 100);
+          slice.forEach(addHistoryRow);
+          fbCursor += slice.length;
+          
+          histStatus.textContent = slice.length ? 
+            `โหลดแล้ว (แสดง ${fbCursor}/${fbCache.length})` : "หมดข้อมูล";
+        }
+      } catch (error) {
+        console.error(error);
+        if (String(error.message || '').includes('index') && !fallback) {
+          fallback = true;
+          idxWarn.style.display = 'inline-block';
+          histStatus.textContent = 'ไม่มีดัชนี — เข้าสู่โหมดชั่วคราว';
+          await searchHistory(reset);
+        } else {
+          histStatus.textContent = 'ผิดพลาด: ' + error.message;
+        }
+      } finally {
+        pending = false;
+      }
+    }
+
+    btnSearch.addEventListener("click", () => searchHistory(true));
+    btnMore.addEventListener("click", () => searchHistory(false));
+
+    // Export functionality
+    btnExport.addEventListener("click", () => {
+      const rows = [];
+      const headers = ["วันที่", "Part Number", "ชื่อ Part", "ประเภท", "จำนวน", "คงเหลือ", "หมายเหตุ"];
+      rows.push(headers.join(","));
+      
+      $$("#historyBody tr").forEach(row => {
+        const cells = [...row.querySelectorAll("td")].map(cell => {
+          let text = cell.textContent.trim();
+          text = text.replace(/"/g, '""');
+          if (text.includes(",") || text.includes('"') || text.includes("\n")) {
+            text = `"${text}"`;
+          }
+          return text;
+        });
+        
+        if (cells.length > 1) {
+          rows.push(cells.join(","));
+        }
+      });
+      
+      if (rows.length <= 1) {
+        toast("ไม่มีข้อมูลให้ Export", false);
+        return;
+      }
+      
+      const csvContent = "\uFEFF" + rows.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `WIPFG_History_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast("Export สำเร็จ");
+    });
+
+    // Initialize the application
+    async function initializeApp() {
+      try {
+        statusText.textContent = "กำลังเข้าสู่ระบบ...";
+        await auth.signInAnonymously();
+        
+        auth.onAuthStateChanged(user => {
+          const isAuthenticated = !!user;
+          $("#connectionStatus").textContent = isAuthenticated ? "เชื่อมต่อสำเร็จ" : "เชื่อมต่อไม่สำเร็จ";
+          statusText.textContent = isAuthenticated ? "ยังไม่ได้เลือก Part" : "เชื่อมต่อไม่สำเร็จ";
+          if (isAuthenticated) {
+            loadPartList();
+            updateDatabaseStats();
+          }
+        });
+        
+        // Set initial dates
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        
+        startDate.value = weekAgo.toISOString().split('T')[0];
+        endDate.value = now.toISOString().split('T')[0];
+        
+      } catch (error) {
+        console.error(error);
+        toast("เข้าสู่ระบบไม่สำเร็จ", false);
+      }
+    }
+
+    // Database Management Functions
+    const samplePartsData = [
+      {
+        partNo: "ABC-001",
+        partName: "Motor Assembly 12V",
+        qty: 150,
+        customer: "Toyota Motor",
+        location: "Warehouse A"
+      },
+      {
+        partNo: "XYZ-002", 
+        partName: "Hydraulic Pump",
+        qty: 75,
+        customer: "Honda",
+        location: "Warehouse B"
+      },
+      {
+        partNo: "DEF-003",
+        partName: "Control Unit ECU",
+        qty: 200,
+        customer: "Nissan",
+        location: "Warehouse A"
+      },
+      {
+        partNo: "GHI-004",
+        partName: "Brake Pad Set",
+        qty: 300,
+        customer: "Mazda",
+        location: "Warehouse C"
+      },
+      {
+        partNo: "JKL-005",
+        partName: "Air Filter Element",
+        qty: 500,
+        customer: "Mitsubishi",
+        location: "Warehouse B"
+      },
+      {
+        partNo: "MNO-006",
+        partName: "Fuel Injection System",
+        qty: 80,
+        customer: "Isuzu",
+        location: "Warehouse A"
+      },
+      {
+        partNo: "PQR-007",
+        partName: "Transmission Gear",
+        qty: 120,
+        customer: "Suzuki",
+        location: "Warehouse C"
+      },
+      {
+        partNo: "STU-008",
+        partName: "LED Headlight Module",
+        qty: 250,
+        customer: "Toyota Motor",
+        location: "Warehouse B"
+      }
+    ];
+
+    async function createSampleData() {
+      try {
+        $("#createSampleData").classList.add("loading");
+        
+        const batch = db.batch();
+        
+        for (const part of samplePartsData) {
+          const partRef = db.collection("/rooms/wipfg/parts").doc();
+          batch.set(partRef, {
+            ...part,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          
+          // Create some sample log entries
+          const logEntries = [
+            {
+              type: "in",
+              amount: Math.floor(part.qty * 0.6),
+              balance: Math.floor(part.qty * 0.6),
+              partNo: part.partNo,
+              partName: part.partName,
+              note: "Initial stock",
+              ts: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000)
+            },
+            {
+              type: "in", 
+              amount: Math.floor(part.qty * 0.4),
+              balance: part.qty,
+              partNo: part.partNo,
+              partName: part.partName,
+              note: "Additional supply",
+              ts: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000)
+            }
+          ];
+          
+          logEntries.forEach(logEntry => {
+            const logRef = partRef.collection("logs").doc();
+            batch.set(logRef, {
+              ...logEntry,
+              ts: firebase.firestore.Timestamp.fromDate(logEntry.ts)
+            });
+          });
+        }
+        
+        await batch.commit();
+        
+        toast("สร้างข้อมูลตัวอย่างสำเร็จ");
+        await loadPartList();
+        await updateDatabaseStats();
+        
+      } catch (error) {
+        console.error(error);
+        toast("สร้างข้อมูลไม่สำเร็จ: " + error.message, false);
+      } finally {
+        $("#createSampleData").classList.remove("loading");
+      }
+    }
+
+    async function clearAllData() {
+      if (!confirm("คำเตือน: การล้างข้อมูลจะลบข้อมูลทั้งหมดและไม่สามารถกู้คืนได้\n\nแน่ใจหรือไม่ที่จะดำเนินการต่อ?")) {
+        return;
+      }
+      
+      if (!confirm("ยืนยันอีกครั้ง: ข้อมูลทั้งหมดจะถูกลบถาวร")) {
+        return;
+      }
+      
+      try {
+        $("#clearAllData").classList.add("loading");
+        
+        // Get all parts
+        const partsSnapshot = await db.collection("/rooms/wipfg/parts").get();
+        const batch = db.batch();
+        
+        // Delete all parts and their logs
+        for (const partDoc of partsSnapshot.docs) {
+          // Delete all logs first
+          const logsSnapshot = await partDoc.ref.collection("logs").get();
+          logsSnapshot.docs.forEach(logDoc => {
+            batch.delete(logDoc.ref);
+          });
+          
+          // Delete the part document
+          batch.delete(partDoc.ref);
+        }
+        
+        await batch.commit();
+        
+        toast("ลบข้อมูลทั้งหมดสำเร็จ");
+        clearPart();
+        partList.innerHTML = "";
+        $("#partList2").innerHTML = "";
+        await updateDatabaseStats();
+        
+      } catch (error) {
+        console.error(error);
+        toast("ลบข้อมูลไม่สำเร็จ: " + error.message, false);
+      } finally {
+        $("#clearAllData").classList.remove("loading");
+      }
+    }
+
+    async function exportBackup() {
+      try {
+        $("#exportBackup").classList.add("loading");
+        
+        const backup = {
+          timestamp: new Date().toISOString(),
+          version: "3.0",
+          parts: []
+        };
+        
+        const partsSnapshot = await db.collection("/rooms/wipfg/parts").get();
+        
+        for (const partDoc of partsSnapshot.docs) {
+          const partData = partDoc.data();
+          const part = {
+            id: partDoc.id,
+            ...partData,
+            logs: []
+          };
+          
+          // Get logs for this part
+          const logsSnapshot = await partDoc.ref.collection("logs").orderBy("ts", "desc").get();
+          logsSnapshot.docs.forEach(logDoc => {
+            const logData = logDoc.data();
+            part.logs.push({
+              id: logDoc.id,
+              ...logData,
+              ts: logData.ts?.toDate?.()?.toISOString() || null
+            });
+          });
+          
+          backup.parts.push(part);
+        }
+        
+        const jsonData = JSON.stringify(backup, null, 2);
+        const blob = new Blob([jsonData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        
+        link.href = url;
+        link.download = `WIPFG_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast("Export ข้อมูลสำเร็จ");
+        
+      } catch (error) {
+        console.error(error);
+        toast("Export ไม่สำเร็จ: " + error.message, false);
+      } finally {
+        $("#exportBackup").classList.remove("loading");
+      }
+    }
+
+    async function importBackup(fileData) {
+      try {
+        $("#importBackup").classList.add("loading");
+        
+        const backup = JSON.parse(fileData);
+        
+        if (!backup.parts || !Array.isArray(backup.parts)) {
+          throw new Error("รูปแบบไฟล์ไม่ถูกต้อง");
+        }
+        
+        const batch = db.batch();
+        
+        for (const part of backup.parts) {
+          const { id, logs, createdAt, updatedAt, ...partData } = part;
+          const partRef = db.collection("/rooms/wipfg/parts").doc();
+          
+          batch.set(partRef, {
+            ...partData,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          
+          // Import logs
+          if (logs && Array.isArray(logs)) {
+            logs.forEach(log => {
+              const { id: logId, ts, ...logData } = log;
+              const logRef = partRef.collection("logs").doc();
+              batch.set(logRef, {
+                ...logData,
+                ts: ts ? firebase.firestore.Timestamp.fromDate(new Date(ts)) : firebase.firestore.FieldValue.serverTimestamp()
+              });
+            });
+          }
+        }
+        
+        await batch.commit();
+        
+        toast(`Import สำเร็จ: ${backup.parts.length} รายการ`);
+        await loadPartList();
+        await updateDatabaseStats();
+        
+      } catch (error) {
+        console.error(error);
+        toast("Import ไม่สำเร็จ: " + error.message, false);
+      } finally {
+        $("#importBackup").classList.remove("loading");
+      }
+    }
+
+    async function updateDatabaseStats() {
+      try {
+        // Count total parts
+        const partsSnapshot = await db.collection("/rooms/wipfg/parts").get();
+        $("#totalParts").textContent = partsSnapshot.size.toLocaleString();
+        
+        // Count total logs (estimate from first few parts)
+        let totalLogs = 0;
+        const sampleParts = partsSnapshot.docs.slice(0, Math.min(10, partsSnapshot.docs.length));
+        
+        for (const partDoc of sampleParts) {
+          const logsSnapshot = await partDoc.ref.collection("logs").get();
+          totalLogs += logsSnapshot.size;
+        }
+        
+        // Estimate total logs if we sampled
+        if (partsSnapshot.size > 10) {
+          totalLogs = Math.round((totalLogs / sampleParts.length) * partsSnapshot.size);
+          $("#totalLogs").textContent = "~" + totalLogs.toLocaleString();
+        } else {
+          $("#totalLogs").textContent = totalLogs.toLocaleString();
+        }
+        
+      } catch (error) {
+        console.error(error);
+        $("#totalParts").textContent = "Error";
+        $("#totalLogs").textContent = "Error";
+      }
+    }
+
+    // Event Listeners for Database Management
+    $("#createSampleData").addEventListener("click", createSampleData);
+    $("#clearAllData").addEventListener("click", clearAllData);
+    $("#exportBackup").addEventListener("click", exportBackup);
+    
+    $("#importBackup").addEventListener("click", () => {
+      $("#importFile").click();
+    });
+    
+    $("#importFile").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          importBackup(e.target.result);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Start the application
+    document.addEventListener("DOMContentLoaded", initializeApp);
+  </script>
+</body>
+</html>
