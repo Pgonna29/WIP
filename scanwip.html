@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WIPFG – QR Scan & Realtime Dashboard</title>
+  <meta name="color-scheme" content="dark light" />
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Production CSS (no Tailwind CDN warning) -->
+  <link rel="stylesheet" href="./app.css">
+
+  <style>
+    /* === Enhancements: Wide container & hide form === */
+    body.wide header .max-w-6xl,
+    body.wide main.max-w-6xl,
+    body.wide .max-w-6xl { max-width: 100vw; }
+    body.form-collapsed #formSection{ display:none; }
+  </style>
+
+
+  <style>
+    /* === Side Drawer for "บันทึกรายการ" === */
+    body.drawer-mode #appMain{ grid-template-columns: 1fr !important; }
+    body.drawer-mode #formSection{
+      position: fixed;
+      top: var(--headerH, 72px);
+      left: 0;
+      width: min(520px, 92vw);
+      height: calc(100vh - var(--headerH, 72px));
+      overflow: auto;
+      z-index: 60;
+      transform: translateX(-100%);
+      transition: transform .28s ease;
+    }
+    body.drawer-mode.drawer-open #formSection{ transform: translateX(0); }
+
+    #drawerBackdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .28s ease;
+      z-index: 50;
+    }
+    body.drawer-mode.drawer-open #drawerBackdrop{
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #drawerHandle{
+      position: fixed;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 61;
+      background: #0b122b;
+      color: #dbeafe;
+      border: 1px solid #1f2a54;
+      padding: 10px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,.35);
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      user-select: none;
+    }
+    body.drawer-mode.drawer-open #drawerHandle{
+      left: calc(min(520px, 92vw) + 8px);
+    }
+    #drawerHandle span{ font-size: 13px; letter-spacing: 0.5px; }
+  </style>
+
+</head>
+<body class="font-sans min-h-screen">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 backdrop-blur bg-[#0b1020]/70 border-b border-base-line">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl2 bg-gradient-to-br from-azure to-violet grid place-items-center shadow-soft">
+        <i data-lucide="scan-line" class="w-6 h-6"></i>
+      </div>
+      <div class="flex-1">
+        <h1 class="text-lg md:text-2xl font-semibold tracking-wide">WIPFG – SCAN QR-CODE & Dashboard</h1>
+        <p class="text-sm text-base-sub">บันทึกเข้าฐานข้อมูล Firestore ที่ห้อง <span class="font-semibold">/rooms/wipfg/parts</span> และแสดงตารางแบบเรียลไทม์</p>
+      </div>
+      <button id="btnBack" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl2 border border-base-line text-sm hover:bg-[#11183a] active:scale-[.98] transition">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <a href="./wip.html" class="back-btn">ย้อนกลับ</a>
+      </button>
+
+      <button id="btnOpenScanner" class="inline-flex items-center gap-2 rounded-xl2 px-4 py-2 bg-brand-600 hover:bg-brand-500 transition-colors shadow-soft">
+        <i data-lucide="qr-code" class="w-5 h-5"></i>
+        <span class="hidden sm:inline">สแกน QR</span>
+        <span class="sm:hidden">สแกน</span>
+      </button>
+      <button id="btnToggleForm" class="ml-2 hidden md:inline-flex items-center gap-2 rounded-xl2 px-3 py-2 border border-base-line hover:bg-[#151c3a]">
+        <span>พับเมนู</span>
+      </button>
+      <button id="btnToggleWidth" class="hidden md:inline-flex items-center gap-2 rounded-xl2 px-3 py-2 border border-base-line hover:bg-[#151c3a]">
+        <span>กว้าง</span>
+      </button>
+      <button id="btnFullscreen" class="inline-flex items-center gap-2 rounded-xl2 px-3 py-2 border border-base-line hover:bg-[#151c3a]">
+        <span>เต็มจอ</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main id="appMain" class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Card: Form -->
+    <section id="formSection" class="lg:col-span-1 rounded-xl2 bg-base-card border border-base-line p-5 shadow-soft">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="file-input" class="w-5 h-5 text-brand-300"></i>
+        <h2 class="text-xl font-semibold">บันทึกรายการ</h2>
+      </div>
+
+      <form id="entryForm" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-base-sub mb-1">วันที่</label>
+            <input id="inputDate" type="date" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm text-base-sub mb-1">เวลา</label>
+            <input id="inputTime" type="time" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm text-base-sub mb-1">Customer</label>
+          <input id="inputCustomer" type="text" placeholder="ชื่อลูกค้า" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-base-sub mb-1">Location</label>
+          <input id="inputLocation" type="text" placeholder="ตำแหน่ง/คลัง" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-base-sub mb-1">Part no</label>
+          <input id="inputPartNo" type="text" placeholder="เช่น ABC-123" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-base-sub mb-1">Part name</label>
+          <input id="inputPartName" type="text" placeholder="ชื่อชิ้นส่วน" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-base-sub mb-1">จำนวน</label>
+          <input id="inputQty" type="number" min="0" step="1" placeholder="เช่น 10" class="w-full rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" />
+        </div>
+
+        <div class="flex items-center gap-2 mt-1">
+          <button type="button" id="btnFillFromNow" class="px-3 py-2 rounded-xl2 border border-base-line hover:bg-[#151c3a]">ใช้วัน‑เวลาปัจจุบัน</button>
+          <button type="button" id="btnOpenScanner2" class="px-3 py-2 rounded-xl2 bg-brand-600 hover:bg-brand-500">สแกน QR</button>
+          <button type="button" id="btnClear" class="px-3 py-2 rounded-xl2 border border-base-line hover:bg-[#151c3a]">ล้างฟอร์ม</button>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full rounded-xl2 px-4 py-3 bg-success hover:opacity-90 font-semibold tracking-wide">บันทึกเข้าระบบ</button>
+          <p id="formMsg" class="text-sm text-base-sub mt-2"></p>
+        </div>
+      </form>
+
+      <div class="mt-6 text-xs text-base-sub">
+        <p>รองรับการสแกนที่มีรูปแบบข้อมูลเป็น <span class="font-semibold">JSON</span>, <span class="font-semibold">key=value</span> (คั่นด้วย ; , & หรือขึ้นบรรทัดใหม่) หรือ <span class="font-semibold">CSV</span> ในลำดับ <em>Customer, Location, PartNo, PartName, Qty</em></p>
+      </div>
+    </section>
+
+    <!-- Card: Dashboard Table -->
+    <section id="dashboardSection" class="lg:col-span-2 rounded-xl2 bg-base-card border border-base-line p-5 shadow-soft">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="layout-list" class="w-5 h-5 text-brand-300"></i>
+          <h2 class="text-xl font-semibold">แดชบอร์ดรายการ (Realtime)</h2>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-base-sub">
+          <span>แสดงล่าสุด</span>
+          <select id="limitSelect" class="rounded-xl2 bg-[#0f1530] border border-base-line px-2 py-1">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+          </select>
+          <span>แถว</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-xl2 border border-base-line p-3 bg-[#0f1530]">
+          <div class="text-xs text-base-sub">ทั้งหมด</div>
+          <div id="statCount" class="text-2xl font-semibold">–</div>
+        </div>
+        <div class="rounded-xl2 border border-base-line p-3 bg-[#0f1530]">
+          <div class="text-xs text-base-sub">จำนวนรวม</div>
+          <div id="statQty" class="text-2xl font-semibold">–</div>
+        </div>
+        <div class="rounded-xl2 border border-base-line p-3 bg-[#0f1530]">
+          <div class="text-xs text-base-sub">รายการล่าสุด</div>
+          <div id="statLatest" class="text-sm">–</div>
+        </div>
+        <div class="rounded-xl2 border border-base-line p-3 bg-[#0f1530]">
+          <div class="text-xs text-base-sub">สถานะ</div>
+          <div id="statStatus" class="text-sm">กำลังเชื่อมต่อ…</div>
+        </div>
+      </div>
+
+      <!-- Table Wrapper -->
+      <div class="overflow-hidden rounded-xl2 border border-base-line">
+        
+        <!-- Filter: Part no -->
+        <div class="mb-2 flex items-center justify-end gap-2">
+          <label for="filterPart" class="text-sm text-base-sub">กรอง Part no</label>
+          <input id="filterPart" type="text" placeholder="เช่น ABC-123" 
+                 class="rounded-xl2 bg-[#0f1530] border border-base-line px-3 py-2" style="width:220px" />
+        </div>
+<div class="hidden md:grid md:grid-cols-8 gap-2 px-3 py-2 bg-[#0c1330] text-xs text-base-sub" style="grid-template-columns: repeat(7, minmax(0,1fr)) 0px;">
+          <div>วันที่</div>
+          <div>เวลา</div>
+          <div>Customer</div>
+          <div>Location</div>
+          <div>Part no</div>
+          <div>Part name</div>
+          <div class="text-right">จำนวน</div>
+        </div>
+        <div id="rows" class="divide-y divide-base-line">
+          <!-- rows injected here -->
+        </div>
+      </div>
+
+      <p id="emptyText" class="text-base-sub text-sm mt-4 hidden">ยังไม่มีข้อมูล</p>
+    </section>
+  </main>
+
+  <!-- Modal: Scanner -->
+  <div id="scannerModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/70"></div>
+    <div class="relative max-w-md mx-auto mt-20 bg-base-card border border-base-line rounded-xl2 shadow-soft">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-base-line">
+        <div class="flex items-center gap-2">
+          <i data-lucide="qr-code" class="w-5 h-5 text-brand-300"></i>
+          <h3 class="font-semibold">สแกน QR-CODE</h3>
+        </div>
+        <button id="btnCloseScanner" class="p-2 rounded-xl2 hover:bg-[#161d3d]" title="ปิด">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-4">
+        <div id="qr-reader" class="w-full rounded-xl2 overflow-hidden bg-black"></div>
+        <p id="scanMsg" class="text-sm text-base-sub mt-3">ให้สิทธิ์กล้องและชี้ไปที่ QR เพื่ออ่านข้อมูล</p>
+      </div>
+      <div class="px-4 pb-4 flex items-center justify-end gap-2">
+        <button id="btnFlipCamera" class="px-3 py-2 rounded-xl2 border border-base-line hover:bg-[#151c3a]">สลับกล้อง</button>
+        <button id="btnStopScanner" class="px-3 py-2 rounded-xl2 bg-danger/80 hover:bg-danger">หยุดกล้อง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-xl2 bg-[#192145] border border-base-line shadow-soft hidden"></div>
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Firebase compat v9 -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase Init
+    var firebaseConfig = {
+      apiKey: "AIzaSyDdHCxweV-gNsJadwvPat7itPHtqPjI09c",
+      authDomain: "fg-realtime.firebaseapp.com",
+      projectId: "fg-realtime",
+      storageBucket: "fg-realtime.firebasestorage.app",
+      messagingSenderId: "868246817558",
+      appId: "1:868246817558:web:92ac8cf055e57fc7f0de37"
+    };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    var db = firebase.firestore();
+    var PARTS = db.collection('rooms').doc('wipfg').collection('parts');
+
+    // Helpers
+    function $(sel){ return document.querySelector(sel); }
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function toDateStr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+    function toTimeStr(d){ return pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+    function showToast(text){
+      var el=document.getElementById('toast'); el.textContent=text; el.classList.remove('hidden');
+      clearTimeout(showToast._t); showToast._t=setTimeout(function(){el.classList.add('hidden');},2600);
+    }
+    function escapeHTML(str){
+      var map={"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"};
+      return String(str).replace(/[&<>\"']/g,function(c){return map[c];});
+    }
+
+    function parsePayload(raw){
+      try{
+        var obj=JSON.parse(raw);
+        return {
+          customer: obj.customer||obj.Customer||obj.cust||'',
+          location: obj.location||obj.Location||obj.loc||'',
+          partNo: obj.partNo||obj.partno||obj.PartNo||obj.PARTNO||obj.part||obj.Part||'',
+          partName: obj.partName||obj.PartName||obj.name||obj.item||'',
+          qty: obj.qty||obj.Qty||obj.quantity||obj.Quantity||''
+        };
+      }catch(e){}
+      var map2={}, lines=raw.split(/[\n;&,]+/).map(function(s){return s.trim();}).filter(function(s){return s;});
+      for(var i=0;i<lines.length;i++){ var m=lines[i].match(/\s*([^:=]+)\s*[:=]?\s*(.*)/); if(m){ map2[m[1].toLowerCase()]=m[2]; } }
+      var fromKV={ customer:map2.customer||map2.cust||'', location:map2.location||map2.loc||'', partNo:map2.partno||map2['part no']||map2.part||'', partName:map2.partname||map2.name||map2.item||'', qty:map2.qty||map2.quantity||'' };
+      if(fromKV.customer||fromKV.location||fromKV.partNo||fromKV.partName||fromKV.qty){ return fromKV; }
+      var csv=raw.split(/\s*[|,\t]\s*/);
+      if(csv.length>=5){ return {customer:csv[0]||'',location:csv[1]||'',partNo:csv[2]||'',partName:csv[3]||'',qty:csv[4]||''}; }
+      return { customer:'', location:'', partNo:raw.trim(), partName:'', qty:'' };
+    }
+
+    function fillFormFrom(o){
+      document.getElementById('inputCustomer').value=o.customer||'';
+      document.getElementById('inputLocation').value=o.location||'';
+      document.getElementById('inputPartNo').value=o.partNo||'';
+      document.getElementById('inputPartName').value=o.partName||'';
+      document.getElementById('inputQty').value=o.qty||'';
+    }
+
+    function resetForm(){
+      var now=new Date();
+      document.getElementById('inputDate').value=toDateStr(now);
+      document.getElementById('inputTime').value=toTimeStr(now);
+      document.getElementById('inputCustomer').value='';
+      document.getElementById('inputLocation').value='';
+      document.getElementById('inputPartNo').value='';
+      document.getElementById('inputPartName').value='';
+      document.getElementById('inputQty').value='';
+      document.getElementById('formMsg').textContent='';
+    }
+    resetForm();
+
+    // Buttons
+    // Back button
+    (function(){
+      var btn=document.getElementById('btnBack');
+      if(btn){
+        btn.addEventListener('click', function(){
+          try{
+            if(window.history && history.length>1){ history.back(); }
+            else{ window.location.href = document.referrer || './'; }
+          }catch(e){ window.location.href='./'; }
+        });
+      }
+    })();
+
+    document.getElementById('btnFillFromNow').addEventListener('click',function(){
+      var n=new Date(); document.getElementById('inputDate').value=toDateStr(n); document.getElementById('inputTime').value=toTimeStr(n);
+    });
+    document.getElementById('btnClear').addEventListener('click',resetForm);
+
+    // Save -> Firestore
+    document.getElementById('entryForm').addEventListener('submit',function(e){
+      e.preventDefault();
+      var dateStr=document.getElementById('inputDate').value;
+      var timeStr=document.getElementById('inputTime').value;
+      var customer=document.getElementById('inputCustomer').value.trim();
+      var location=document.getElementById('inputLocation').value.trim();
+      var partNo=document.getElementById('inputPartNo').value.trim();
+      var partName=document.getElementById('inputPartName').value.trim();
+      var qtyVal=document.getElementById('inputQty').value.trim();
+      var qty=qtyVal===''?null:Number(qtyVal);
+
+      if(!partNo){ document.getElementById('formMsg').textContent='กรุณาระบุ Part no'; return; }
+      if(qty!==null && !isFinite(qty)){ document.getElementById('formMsg').textContent='จำนวนต้องเป็นตัวเลข'; return; }
+
+      document.getElementById('formMsg').textContent='กำลังบันทึก…';
+      try{
+        var clientDate=dateStr?new Date(dateStr+'T'+(timeStr||'00:00')):new Date();
+        PARTS.add({
+          customer:customer, location:location, partNo:partNo, partName:partName,
+          qty: qty===null?null:qty, raw: window._lastScanRaw||null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientAt: clientDate
+        }).then(function(){
+          document.getElementById('formMsg').textContent='บันทึกสำเร็จ'; showToast('บันทึกรายการสำเร็จ'); window._lastScanRaw=null; resetForm();
+        }).catch(function(err){
+          console.error(err); document.getElementById('formMsg').textContent='เกิดข้อผิดพลาดในการบันทึก'; showToast('บันทึกไม่สำเร็จ');
+        });
+      }catch(err){ console.error(err); document.getElementById('formMsg').textContent='เกิดข้อผิดพลาดในการบันทึก'; }
+    });
+
+    // Realtime Table
+    var unsub=null;
+var lastDocs=[];
+var filterPart="";
+function applyFilter(items){
+  try{
+    var q=(filterPart||"").toLowerCase();
+    if(!q) return items;
+    return items.filter(function(it){ return String(it.partNo||"").toLowerCase().indexOf(q)!==-1; });
+  }catch(e){ return items; }
+}
+
+    function startListen(limit){ if(typeof limit!=='number'){limit=100;} if(unsub){try{unsub();}catch(e){}}
+      document.getElementById('rows').innerHTML=''; document.getElementById('statStatus').textContent='กำลังโหลด…';
+      unsub = PARTS.orderBy('createdAt','desc').limit(limit).onSnapshot(function(snap){
+        var docs=[]; snap.forEach(function(d){ var data=d.data(); data.id=d.id; docs.push(data); });
+        lastDocs=docs; renderRows(applyFilter(lastDocs)); document.getElementById('statStatus').textContent='เชื่อมต่อแล้ว';
+      }, function(err){ console.error(err); document.getElementById('statStatus').textContent='ขาดการเชื่อมต่อ'; });
+    }
+
+    function renderRows(items){
+      var container=document.getElementById('rows'); container.innerHTML=''; var totalQty=0;
+      for(var i=0;i<items.length;i++){
+        var item=items[i], ts=null;
+        try{
+          if(item.createdAt && typeof item.createdAt.toDate==='function') ts=item.createdAt.toDate();
+          else if(item.clientAt && typeof item.clientAt.toDate==='function') ts=item.clientAt.toDate();
+          else if(item.clientAt) ts=new Date(item.clientAt); else ts=new Date();
+        }catch(e){ ts=new Date(); }
+        var d=(ts instanceof Date && !isNaN(ts))?ts:new Date();
+        var dateDisp=pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear();
+        var timeDisp=pad2(d.getHours())+':'+pad2(d.getMinutes());
+        var qtyDisp=(typeof item.qty==='number' && isFinite(item.qty))?item.qty:'';
+        if(typeof item.qty==='number' && isFinite(item.qty)) totalQty+=item.qty;
+
+        var row=document.createElement('div');
+        row.className='hidden md:grid md:grid-cols-8 gap-2 px-3 py-2 hover:bg-[#0f153c]';
+        row.style.cssText='grid-template-columns: repeat(7, minmax(0,1fr)) 0px;';
+        row.innerHTML='' +
+          '<div class="truncate">'+dateDisp+'</div>' +
+          '<div class="truncate">'+timeDisp+'</div>' +
+          '<div class="truncate">'+escapeHTML(item.customer||'')+'</div>' +
+          '<div class="truncate">'+escapeHTML(item.location||'')+'</div>' +
+          '<div class="truncate font-medium">'+escapeHTML(item.partNo||'')+'</div>' +
+          '<div class="truncate">'+escapeHTML(item.partName||'')+'</div>' +
+          '<div class="text-right">'+escapeHTML(String(qtyDisp))+'</div>';
+        container.appendChild(row);
+
+        var card=document.createElement('div');
+        card.className='md:hidden p-3 bg-[#0f1530]';
+        card.innerHTML='' +
+          '<div class="flex items-center justify-between">' +
+            '<div class="text-sm text-base-sub">'+dateDisp+' • '+timeDisp+'</div>' +
+            '<div class="text-xs text-base-sub">#'+String(item.id||'').slice(0,6)+'</div>' +
+          '</div>' +
+          '<div class="mt-1 font-semibold">'+escapeHTML(item.partNo||'')+'</div>' +
+          '<div class="text-sm">'+escapeHTML(item.partName||'')+'</div>' +
+          '<div class="mt-1 text-sm text-base-sub">'+escapeHTML(item.customer||'')+' • '+escapeHTML(item.location||'')+'</div>' +
+          '<div class="mt-1 text-right font-semibold">'+escapeHTML(String(qtyDisp))+'</div>';
+        container.appendChild(card);
+      }
+      document.getElementById('emptyText').classList.toggle('hidden', items.length!==0);
+      document.getElementById('statCount').textContent=items.length.toLocaleString();
+      document.getElementById('statQty').textContent=totalQty.toLocaleString();
+
+      if(items[0]){
+        var it=items[0], ts2=null;
+        try{
+          if(it.createdAt && typeof it.createdAt.toDate==='function') ts2=it.createdAt.toDate();
+          else if(it.clientAt && typeof it.clientAt.toDate==='function') ts2=it.clientAt.toDate();
+          else if(it.clientAt) ts2=new Date(it.clientAt); else ts2=new Date();
+        }catch(e){ ts2=new Date(); }
+        var d2=(ts2 instanceof Date && !isNaN(ts2))?ts2:new Date();
+        document.getElementById('statLatest').textContent=pad2(d2.getDate())+'/'+pad2(d2.getMonth()+1)+'/'+d2.getFullYear()+' '+pad2(d2.getHours())+':'+pad2(d2.getMinutes());
+      }else{ document.getElementById('statLatest').textContent='–'; }
+    }
+
+    startListen(100);
+    // Filter Part no listener
+    (function(){ var el=document.getElementById('filterPart'); if(el){ el.addEventListener('input', function(ev){ filterPart=(ev.target.value||'').trim(); renderRows(applyFilter(lastDocs)); }); } })();
+    document.getElementById('limitSelect').addEventListener('change',function(e){ var n=Number(e.target.value)||100; startListen(n); });
+
+    // QR Scanner Modal
+    var qr=null, currentCameraId=null;
+    function openScanner(){ document.getElementById('scannerModal').classList.remove('hidden'); startScanner(); }
+    function closeScanner(){ stopScanner(); document.getElementById('scannerModal').classList.add('hidden'); }
+    function startScanner(){
+      try{
+        if(!qr){ qr=new Html5Qrcode('qr-reader'); }
+        Html5Qrcode.getCameras().then(function(devices){
+          if(devices && devices.length){
+            var back=null; for(var i=0;i<devices.length;i++){ if(/back|rear|environment/i.test(devices[i].label)){ back=devices[i]; break; } }
+            currentCameraId=(back||devices[0]).id;
+          }
+          return qr.start(currentCameraId?{deviceId:{exact:currentCameraId}}:{facingMode:'environment'},
+            {fps:10,qrbox:250,aspectRatio:1.0}, onScanSuccess, onScanFailure);
+        }).then(function(){ document.getElementById('scanMsg').textContent='กำลังใช้งานกล้อง…'; })
+          .catch(function(err){ console.error(err); document.getElementById('scanMsg').textContent='ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการใช้กล้อง'; });
+      }catch(err){ console.error(err); document.getElementById('scanMsg').textContent='ไม่สามารถเปิดกล้องได้'; }
+    }
+    function stopScanner(){ if(qr){ try{ qr.stop().catch(function(){}); }catch(e){} try{ qr.clear().catch(function(){}); }catch(e){} } }
+    function flipCamera(){
+      Html5Qrcode.getCameras().then(function(devices){
+        if(!devices || devices.length<2){ showToast('ไม่มีกล้องให้สลับ'); return; }
+        var idx=-1; for(var i=0;i<devices.length;i++){ if(devices[i].id===currentCameraId){ idx=i; break; } }
+        var next=devices[(idx+1)%devices.length]; currentCameraId=next.id; stopScanner(); startScanner();
+      }).catch(function(err){ console.error(err); });
+    }
+    function onScanSuccess(decodedText){ window._lastScanRaw=decodedText; var parsed=parsePayload(decodedText); fillFormFrom(parsed);
+      document.getElementById('scanMsg').textContent='อ่านสำเร็จ และนำข้อมูลไปใส่ในแบบฟอร์มแล้ว'; showToast('สแกนสำเร็จ'); stopScanner(); setTimeout(function(){ closeScanner(); },300); }
+    function onScanFailure(err){ /* ignore frequent scan errors */ }
+
+    document.getElementById('btnOpenScanner').addEventListener('click', openScanner);
+    document.getElementById('btnOpenScanner2').addEventListener('click', openScanner);
+    document.getElementById('btnCloseScanner').addEventListener('click', closeScanner);
+    document.getElementById('btnStopScanner').addEventListener('click', stopScanner);
+    document.getElementById('btnFlipCamera').addEventListener('click', flipCamera);
+
+    // Icons
+    window.addEventListener('DOMContentLoaded', function(){ if(window.lucide && window.lucide.createIcons){ window.lucide.createIcons(); } });
+  </script>
+
+<div id="drawerBackdrop"></div>
+<button id="drawerHandle" type="button" aria-label="toggle side menu"><span>บันทึกรายการ</span></button>
+
+
+<script>
+/* === Layout Controls: collapse form, wide container, fullscreen, side drawer === */
+(function(){
+  var storage = window.localStorage;
+
+  var formCollapsed = storage.getItem('formCollapsed') === '1';
+  var wideMode = storage.getItem('wideMode') === '1';
+  var drawerMode = storage.getItem('drawerMode');
+  if (drawerMode === null) { drawerMode = '1'; }
+  var isDrawerMode = drawerMode === '1';
+  var drawerOpen = storage.getItem('drawerOpen') === '1';
+
+  var btnTF = document.getElementById('btnToggleForm');
+  var btnTW = document.getElementById('btnToggleWidth');
+  var btnFS = document.getElementById('btnFullscreen');
+  var formSection = document.getElementById('formSection');
+  var appMain = document.getElementById('appMain');
+  var drawerBackdrop = document.getElementById('drawerBackdrop');
+  var drawerHandle = document.getElementById('drawerHandle');
+  var headerEl = document.querySelector('header');
+
+  function setHeaderHeightVar(){
+    try{
+      var h = headerEl ? headerEl.offsetHeight : 72;
+      document.body.style.setProperty('--headerH', h + 'px');
+    }catch(e){}
+  }
+  setHeaderHeightVar();
+  window.addEventListener('resize', setHeaderHeightVar);
+
+  function applyLayout(){
+    document.body.classList.toggle('wide', wideMode);
+    document.body.classList.toggle('drawer-mode', isDrawerMode);
+    document.body.classList.toggle('drawer-open', isDrawerMode && drawerOpen);
+    document.body.classList.toggle('form-collapsed', !isDrawerMode && formCollapsed);
+
+    if(btnTF){
+      var span = btnTF.querySelector('span');
+      if(isDrawerMode){
+        if(span){ span.textContent = drawerOpen ? 'ปิดเมนู' : 'เปิดเมนู'; }
+      }else{
+        if(span){ span.textContent = formCollapsed ? 'แสดงเมนู' : 'พับเมนู'; }
+      }
+    }
+    if(btnTW){
+      var span2 = btnTW.querySelector('span');
+      if(span2){ span2.textContent = wideMode ? 'แคบ' : 'กว้าง'; }
+    }
+    if(drawerHandle){
+      var s = drawerHandle.querySelector('span');
+      if(s){ s.textContent = drawerOpen ? 'ปิดเมนู' : 'บันทึกรายการ'; }
+      drawerHandle.style.display = isDrawerMode ? 'block' : 'none';
+    }
+  }
+  applyLayout();
+
+  if(btnTW){
+    btnTW.addEventListener('click', function(){
+      wideMode = !wideMode;
+      storage.setItem('wideMode', wideMode ? '1' : '0');
+      applyLayout();
+      try{ showToast(wideMode ? 'โหมดกว้าง: เปิด' : 'โหมดกว้าง: ปิด'); }catch(e){}
+    });
+  }
+
+  function isFull(){ return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement; }
+  function requestFS(el){
+    if(el.requestFullscreen){ el.requestFullscreen(); }
+    else if(el.webkitRequestFullscreen){ el.webkitRequestFullscreen(); }
+    else if(el.msRequestFullscreen){ el.msRequestFullscreen(); }
+  }
+  function exitFS(){
+    if(document.exitFullscreen){ document.exitFullscreen(); }
+    else if(document.webkitExitFullscreen){ document.webkitExitFullscreen(); }
+    else if(document.msExitFullscreen){ document.msExitFullscreen(); }
+  }
+  function updateFSBtn(){
+    if(btnFS){
+      var span = btnFS.querySelector('span');
+      if(span){ span.textContent = isFull() ? 'ออกจากเต็มจอ' : 'เต็มจอ'; }
+    }
+  }
+  if(btnFS){
+    btnFS.addEventListener('click', function(){ if(isFull()) exitFS(); else requestFS(document.documentElement); });
+    document.addEventListener('fullscreenchange', updateFSBtn);
+    document.addEventListener('webkitfullscreenchange', updateFSBtn);
+    document.addEventListener('msfullscreenchange', updateFSBtn);
+    updateFSBtn();
+  }
+
+  function toggleFormOrDrawer(){
+    if(isDrawerMode){
+      drawerOpen = !drawerOpen;
+      storage.setItem('drawerOpen', drawerOpen ? '1' : '0');
+      applyLayout();
+      try{ showToast(drawerOpen ? 'เปิดเมนูด้านข้าง' : 'ปิดเมนูด้านข้าง'); }catch(e){}
+    }else{
+      formCollapsed = !formCollapsed;
+      storage.setItem('formCollapsed', formCollapsed ? '1' : '0');
+      applyLayout();
+      try{ showToast(formCollapsed ? 'พับเมนูบันทึกแล้ว' : 'แสดงเมนูบันทึก'); }catch(e){}
+    }
+  }
+
+  if(btnTF){ btnTF.addEventListener('click', toggleFormOrDrawer); }
+  if(drawerHandle){ drawerHandle.addEventListener('click', toggleFormOrDrawer); }
+  if(drawerBackdrop){
+    drawerBackdrop.addEventListener('click', function(){
+      if(isDrawerMode && drawerOpen){ drawerOpen = false; storage.setItem('drawerOpen','0'); applyLayout(); }
+    });
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && isDrawerMode && drawerOpen){ drawerOpen = false; storage.setItem('drawerOpen','0'); applyLayout(); }
+  });
+
+  // Allow switching via console if needed
+  window.__setDrawerMode = function(on){
+    isDrawerMode = !!on;
+    localStorage.setItem('drawerMode', isDrawerMode ? '1' : '0');
+    applyLayout();
+  };
+})();
+</script>
+
+</body>
+</html>
